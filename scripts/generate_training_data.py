@@ -42,7 +42,7 @@ def generate_graph_seq2seq_io_data(
     # epoch_len = num_samples + min(x_offsets) - max(y_offsets)
     input_dim, output_dim = data.shape[-1], data.shape[-1]
     x = np.zeros([max_t - min_t + 1, len(x_offsets), num_nodes, input_dim])
-    y = np.zeros([max_t - min_t + 1, len(x_offsets), num_nodes, output_dim])
+    y = np.zeros([max_t - min_t + 1, len(y_offsets), num_nodes, output_dim])
 
     for (i, t) in enumerate(range(min_t, max_t)):
         x[i] = data[t + x_offsets, ...]
