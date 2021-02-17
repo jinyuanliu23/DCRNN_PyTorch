@@ -2,7 +2,7 @@
 base_dir: data/model
 log_level: INFO
 data:
-  batch_size: 64
+  batch_size: 8
   dataset_dir: data/METR-LA
   test_batch_size: 64
   val_batch_size: 64
@@ -37,3 +37,4 @@ train:
   patience: 50
   steps: [20, 30, 40, 50]
   test_every_n_epochs: 10
+  update_freq: 8

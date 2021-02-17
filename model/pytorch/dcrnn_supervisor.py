@@ -53,7 +53,7 @@ class DCRNNSupervisor:
     def _get_log_dir(kwargs):
         log_dir = kwargs['train'].get('log_dir')
         if log_dir is None:
-            batch_size = kwargs['data'].get('batch_size')
+            batch_size = kwargs['data'].get('batch_size') * kwargs['train'].get('update_freq')
             learning_rate = kwargs['train'].get('base_lr')
             max_diffusion_step = kwargs['model'].get('max_diffusion_step')
             num_rnn_layers = kwargs['model'].get('num_rnn_layers')
@@ -179,8 +179,8 @@ class DCRNNSupervisor:
 
             start_time = time.time()
 
+            optimizer.zero_grad()
             for _, (x, y) in enumerate(train_iterator):
-                optimizer.zero_grad()
 
                 x, y = self._prepare_data(x, y)
 
@@ -202,7 +202,10 @@ class DCRNNSupervisor:
                 # gradient clipping - this does it in place
                 torch.nn.utils.clip_grad_norm_(self.dcrnn_model.parameters(), self.max_grad_norm)
 
-                optimizer.step()
+                if not (_ % update_freq):
+                    optimizer.step()
+                    optimizer.zero_grad()
+
             self._logger.info("epoch complete")
             lr_scheduler.step()
             self._logger.info("evaluating now!")
