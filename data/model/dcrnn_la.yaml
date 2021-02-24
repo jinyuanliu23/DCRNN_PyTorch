@@ -16,7 +16,9 @@ model:
   l1_decay: 0
   max_diffusion_step: 2
   num_nodes: 207
-  num_rnn_layers: 2
+  num_rnn_layers: 3
+  num_rnn_encode_layers: 4
+  num_rnn_decode_layers: 2
   output_dim: 1
   rnn_units: 64
   seq_len: 12
@@ -37,3 +39,4 @@ train:
   patience: 50
   steps: [20, 30, 40, 50]
   test_every_n_epochs: 10
+#  update_freq: 8
