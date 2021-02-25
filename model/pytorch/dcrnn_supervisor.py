@@ -23,7 +23,7 @@ class DCRNNSupervisor:
 
         # logging.
         self._log_dir = self._get_log_dir(kwargs)
-        self._writer = SummaryWriter('runs/' + self._log_dir)
+        self._writer = SummaryWriter(self._log_dir + '/runs/')
 
         log_level = self._kwargs.get('log_level', 'INFO')
         self._logger = utils.get_logger(self._log_dir, __name__, 'info.log', level=log_level)
@@ -54,12 +54,13 @@ class DCRNNSupervisor:
         log_dir = kwargs['train'].get('log_dir')
         if log_dir is None:
             batch_size = kwargs['data'].get('batch_size')
+            # batch_size = kwargs['data'].get('batch_size') * kwargs['train'].get('update_freq')
             learning_rate = kwargs['train'].get('base_lr')
             max_diffusion_step = kwargs['model'].get('max_diffusion_step')
-            num_rnn_layers = kwargs['model'].get('num_rnn_layers')
+            num_rnn_encode_layers = kwargs['model'].get('num_rnn_encode_layers')
             rnn_units = kwargs['model'].get('rnn_units')
             structure = '-'.join(
-                ['%d' % rnn_units for _ in range(num_rnn_layers)])
+                ['%d' % rnn_units for _ in range(num_rnn_encode_layers)])
             horizon = kwargs['model'].get('horizon')
             filter_type = kwargs['model'].get('filter_type')
             filter_type_abbr = 'L'
@@ -178,7 +179,7 @@ class DCRNNSupervisor:
             losses = []
 
             start_time = time.time()
-
+            # optimizer.zero_grad()
             for _, (x, y) in enumerate(train_iterator):
                 optimizer.zero_grad()
 
@@ -191,7 +192,8 @@ class DCRNNSupervisor:
                     optimizer = torch.optim.Adam(self.dcrnn_model.parameters(), lr=base_lr, eps=epsilon)
 
                 loss = self._compute_loss(y, output)
-
+                # if not (_ % 100):
+                #     self._writer.add_scalar('step_loss', np.mean(loss.item()), _)
                 self._logger.debug(loss.item())
 
                 losses.append(loss.item())
@@ -203,6 +205,9 @@ class DCRNNSupervisor:
                 torch.nn.utils.clip_grad_norm_(self.dcrnn_model.parameters(), self.max_grad_norm)
 
                 optimizer.step()
+                # if not (_ % kwargs.get('update_freq')):
+                #     optimizer.step()
+                #     optimizer.zero_grad()
             self._logger.info("epoch complete")
             lr_scheduler.step()
             self._logger.info("evaluating now!")
