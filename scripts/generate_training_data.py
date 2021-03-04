@@ -10,7 +10,7 @@ import pandas as pd
 
 
 def generate_graph_seq2seq_io_data(
-        df, x_offsets, y_offsets, add_time_in_day=True, add_day_in_week=False, scaler=None
+        df, x_offsets, y_offsets, add_time_in_day=True, add_day_in_week=False, scaler=None, filter_weekend=True
 ):
     """
     Generate samples from
@@ -26,7 +26,10 @@ def generate_graph_seq2seq_io_data(
     """
 
     num_samples, num_nodes = df.shape
-    data = np.tile(df.values[:, :, None], [1, 1, 1 + int(add_time_in_day) + int(add_day_in_week)])
+    data = np.tile(
+        df.values[:, :, None],
+        [1, 1, 1 + int(add_time_in_day) + int(add_day_in_week) * 7])
+
     if add_time_in_day:
         time_ind = (df.index.values - df.index.values.astype("datetime64[D]")) / np.timedelta64(1, "D")
         time_in_day = np.tile(time_ind, [1, num_nodes, 1]).transpose((2, 1, 0))
@@ -34,19 +37,32 @@ def generate_graph_seq2seq_io_data(
     if add_day_in_week:
         day_in_week = np.zeros(shape=(num_samples, num_nodes, 7))
         day_in_week[np.arange(num_samples), :, df.index.dayofweek] = 1
-        data[:, :, :-1] = day_in_week[:]
+        data[:, :, -7:] = day_in_week[:]
 
     # t is the index of the last observation.
     min_t = abs(min(x_offsets))
     max_t = abs(num_samples - abs(max(y_offsets)))  # Exclusive
+
+    total_length = len(list(filter(
+        lambda x: x in range(6), 
+        df.index.dayofweek[min_t: max_t]))) if filter_weekend else max_t - min_t + 1
+
     # epoch_len = num_samples + min(x_offsets) - max(y_offsets)
     input_dim, output_dim = data.shape[-1], data.shape[-1]
-    x = np.zeros([max_t - min_t + 1, len(x_offsets), num_nodes, input_dim])
-    y = np.zeros([max_t - min_t + 1, len(y_offsets), num_nodes, output_dim])
+    x = np.zeros([total_length, len(x_offsets), num_nodes, input_dim])
+    y = np.zeros([total_length, len(y_offsets), num_nodes, output_dim])
 
-    for (i, t) in enumerate(range(min_t, max_t)):
-        x[i] = data[t + x_offsets, ...]
-        y[i] = data[t + y_offsets, ...]
+    i = 0
+    if filter_weekend:
+        for t in range(min_t, max_t):
+            if df.index.dayofweek[t] in range(6):
+                x[i] = data[t + x_offsets, ...]
+                y[i] = data[t + y_offsets, ...]
+                i += 1
+    else:
+        for (i, t) in enumerate(range(min_t, max_t)):
+            x[i] = data[t + x_offsets, ...]
+            y[i] = data[t + y_offsets, ...]
 
     return x, y
 
