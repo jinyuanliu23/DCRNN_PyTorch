@@ -52,8 +52,8 @@ def generate_graph_seq2seq_io_data(
     x = np.zeros([total_length, len(x_offsets), num_nodes, input_dim])
     y = np.zeros([total_length, len(y_offsets), num_nodes, output_dim])
 
-    i = 0
     if filter_weekend:
+        i = 0
         for t in range(min_t, max_t):
             if df.index.dayofweek[t] in range(6):
                 x[i] = data[t + x_offsets, ...]
