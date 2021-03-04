@@ -44,7 +44,7 @@ def generate_graph_seq2seq_io_data(
     max_t = abs(num_samples - abs(max(y_offsets)))  # Exclusive
 
     total_length = len(list(filter(
-        lambda x: x in range(6), 
+        lambda x: x in range(5), 
         df.index.dayofweek[min_t: max_t]))) if filter_weekend else max_t - min_t + 1
 
     # epoch_len = num_samples + min(x_offsets) - max(y_offsets)
@@ -55,7 +55,7 @@ def generate_graph_seq2seq_io_data(
     if filter_weekend:
         i = 0
         for t in range(min_t, max_t):
-            if df.index.dayofweek[t] in range(6):
+            if df.index.dayofweek[t] in range(5):
                 x[i] = data[t + x_offsets, ...]
                 y[i] = data[t + y_offsets, ...]
                 i += 1
