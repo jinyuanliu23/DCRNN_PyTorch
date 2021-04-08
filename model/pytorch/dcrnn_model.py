@@ -4,7 +4,7 @@ import torch.nn as nn
 # str.encode('utf-8')
 # bytes.decode('utf-8')
 
-from model.pytorch.dcrnn_cell import DCGRUCell
+from model.pytorch.dcrnn_cell import GAGRUCell
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -16,10 +16,10 @@ def count_parameters(model):
 class Seq2SeqAttrs:
     def __init__(self, adj_mx, **model_kwargs):
         self.adj_mx = adj_mx
-        self.max_diffusion_step = int(model_kwargs.get('max_diffusion_step', 2))
         self.cl_decay_steps = int(model_kwargs.get('cl_decay_steps', 1000))
         self.filter_type = model_kwargs.get('filter_type', 'laplacian')
         self.num_nodes = int(model_kwargs.get('num_nodes', 1))
+        # self.multi_head_nums = int(model_kwargs.get('multi_head_nums',2))
         self.num_rnn_layers = int(model_kwargs.get('num_rnn_layers', 1))
         self.num_rnn_encode_layers = int(model_kwargs.get('num_rnn_encode_layers', 1))
         self.num_rnn_decode_layers = int(model_kwargs.get('num_rnn_decode_layers', 1))
@@ -33,9 +33,11 @@ class EncoderModel(nn.Module, Seq2SeqAttrs):
         Seq2SeqAttrs.__init__(self, adj_mx, **model_kwargs)
         self.input_dim = int(model_kwargs.get('input_dim', 1))
         self.seq_len = int(model_kwargs.get('seq_len'))  # for the encoder
-        self.dcgru_layers = nn.ModuleList(
-            [DCGRUCell(self.rnn_units, adj_mx, self.max_diffusion_step, self.num_nodes,
-                       filter_type=self.filter_type) for _ in range(self.num_rnn_encode_layers)])
+        self.gagru_layers = nn.ModuleList(
+            [GAGRUCell for _ in range(self.num_rnn_encode_layers)])
+
+    (self.rnn_units, adj_mx, self.num_nodes
+     )
 
     def forward(self, inputs, hidden_state=None):
         """
@@ -54,12 +56,13 @@ class EncoderModel(nn.Module, Seq2SeqAttrs):
                                        device=device)
         hidden_states = []
         output = inputs
-        for layer_num, dcgru_layer in enumerate(self.dcgru_layers):
-            next_hidden_state = dcgru_layer(output, hidden_state[layer_num])
+        for layer_num, gagru_layer in enumerate(self.gagru_layers):
+            next_hidden_state = gagru_layer(output , hidden_state[layer_num])
             hidden_states.append(next_hidden_state)
+            output = next_hidden_state
             # print(next_hidden_state.shape())
-        next_hidden_state = torch.cat(hidden_states, dim=0 )
-        output = next_hidden_state
+        # next_hidden_state = torch.cat(hidden_states, dim=0 )
+        # output = next_hidden_states
 
 
         return output, torch.stack(hidden_states)  # runs in O(num_layers) so not too slow
@@ -73,9 +76,8 @@ class DecoderModel(nn.Module, Seq2SeqAttrs):
         self.output_dim = int(model_kwargs.get('output_dim', 1))
         self.horizon = int(model_kwargs.get('horizon', 1))  # for the decoder
         self.projection_layer = nn.Linear(self.rnn_units, self.output_dim)
-        self.dcgru_layers = nn.ModuleList(
-            [DCGRUCell(self.rnn_units, adj_mx, self.max_diffusion_step, self.num_nodes,
-                       filter_type=self.filter_type) for _ in range(self.num_rnn_decode_layers)])
+        self.gagru_layers = nn.ModuleList(
+            [GAGRUCell(self.rnn_units, adj_mx,  self.num_nodes) for _ in range(self.num_rnn_decode_layers)])
 
     def forward(self, inputs, hidden_state=None):
         """
@@ -90,8 +92,8 @@ class DecoderModel(nn.Module, Seq2SeqAttrs):
         """
         hidden_states = []
         output = inputs
-        for layer_num, dcgru_layer in enumerate(self.dcgru_layers):
-            next_hidden_state = dcgru_layer(output, hidden_state[layer_num])
+        for layer_num, gagru_layer in enumerate(self.dcgru_layers):
+            next_hidden_state = gagru_layer(output, hidden_state[layer_num])
             hidden_states.append(next_hidden_state)
             output = next_hidden_state
 
@@ -101,7 +103,7 @@ class DecoderModel(nn.Module, Seq2SeqAttrs):
         return output, torch.stack(hidden_states)
 
 
-class DCRNNModel(nn.Module, Seq2SeqAttrs):
+class GARNNModel(nn.Module, Seq2SeqAttrs):
     def __init__(self, adj_mx, logger, **model_kwargs):
         super().__init__()
         Seq2SeqAttrs.__init__(self, adj_mx, **model_kwargs)
